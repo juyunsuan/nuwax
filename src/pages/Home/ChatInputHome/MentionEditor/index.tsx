@@ -257,7 +257,7 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
       onChange,
       onPressEnter,
       onPaste,
-      placeholder = '直接输入指令；可通过回车发送；支持粘贴图片',
+      placeholder = '直接输入指令；可通过回车发送；输入@唤起工具；支持粘贴图片',
       autoFocus = true,
       disabled = false,
       className,
@@ -342,7 +342,7 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
      */
     useEffect(() => {
       const nextSkillIds = Array.from(
-        new Set(selectedMentions.map((item) => item.id)),
+        new Set(selectedMentions.map((item) => item.id as number)),
       );
       onSkillIdsChange?.(nextSkillIds);
     }, [onSkillIdsChange, selectedMentions]);

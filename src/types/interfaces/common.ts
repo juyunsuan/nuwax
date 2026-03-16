@@ -516,7 +516,11 @@ export interface ChatInputProps extends ManualComponentItemProps {
   isClearInput?: boolean;
   onScrollBottom?: () => void;
   onClear?: () => void;
-  onEnter: (message: string, files: UploadFileInfo[]) => void;
+  onEnter: (
+    message: string,
+    files: UploadFileInfo[],
+    skillIds?: number[],
+  ) => void;
   showAnnouncement?: boolean;
   // 临时会话停止方法
   onTempChatStop?: (requestId: string) => void;

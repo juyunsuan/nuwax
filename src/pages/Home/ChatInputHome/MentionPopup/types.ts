@@ -133,7 +133,7 @@ export interface MentionEditorProps {
   /** 选择提及项时的回调 */
   onMentionSelect?: (item: MentionItem) => void;
   /** 当前已选技能 ID 列表变化时的回调 */
-  onSkillIdsChange?: (skillIds: Array<string | number>) => void;
+  onSkillIdsChange?: (skillIds: Array<number>) => void;
   /** 最小行数（影响最小高度） */
   minRows?: number;
   /** 最大行数（影响最大高度） */
