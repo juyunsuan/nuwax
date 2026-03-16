@@ -170,13 +170,11 @@ const CreateIMChannel: React.FC<CreateIMChannelProps> = ({
   };
 
   const showTestBtn =
-    mode === CreateUpdateModeEnum.Create &&
-    ((platform === IMPlatformEnum.Feishu &&
+    (platform === IMPlatformEnum.Feishu &&
       robotType === IMChannelTypeEnum.Bot) ||
-      (platform === IMPlatformEnum.Dingtalk &&
-        robotType === IMChannelTypeEnum.Bot) ||
-      (platform === IMPlatformEnum.Wework &&
-        robotType === IMChannelTypeEnum.App));
+    (platform === IMPlatformEnum.Dingtalk &&
+      robotType === IMChannelTypeEnum.Bot) ||
+    (platform === IMPlatformEnum.Wework && robotType === IMChannelTypeEnum.App);
 
   const getTitle = () => {
     const pName = platform
@@ -208,7 +206,7 @@ const CreateIMChannel: React.FC<CreateIMChannelProps> = ({
                 loading={testing}
                 onClick={handleTestConnection}
               >
-                测试连接
+                测试连通性
               </Button>
             ),
             defaultDoms[1],
