@@ -265,6 +265,8 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
       onSkillIdsChange,
       // 是否启用 @ 提及功能，默认启用
       enableMention = true,
+      // 默认需要回显为 mention chip 的技能列表（按顺序渲染）
+      defaultMentions,
       minRows = 2,
       maxRows = 6,
     },
@@ -527,6 +529,57 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
       },
       [removeMentionChip],
     );
+
+    /**
+     * 按传入技能顺序回显 mention chip，忽略 value 文本内容
+     * 光标默认落在最后一个 chip 之后，便于继续输入
+     */
+    useEffect(() => {
+      if (!editorRef.current) return;
+      if (!enableMention) return;
+      if (!defaultMentions || defaultMentions.length === 0) return;
+      // 如果已经有内容（用户手动输入或之前回显过），不重复回显
+      if (editorRef.current.innerText.trim()) return;
+
+      const container = editorRef.current;
+      container.innerHTML = '';
+
+      defaultMentions.forEach((mention) => {
+        const chip = createMentionChip(mention);
+        container.appendChild(chip);
+        // 每个 chip 后插入一个空格文本节点，保证 chip 与后续输入有间隔
+        const spaceNode = document.createTextNode(' ');
+        container.appendChild(spaceNode);
+      });
+
+      // 将光标移动到内容末尾（最后一个空格节点之后）
+      const selection = window.getSelection();
+      if (selection) {
+        const range = document.createRange();
+        const lastChild = container.lastChild;
+
+        if (lastChild && lastChild.nodeType === Node.TEXT_NODE) {
+          const text = lastChild.textContent || '';
+          range.setStart(lastChild, text.length);
+          range.setEnd(lastChild, text.length);
+        } else {
+          const spacer = document.createTextNode('');
+          container.appendChild(spacer);
+          range.setStart(spacer, 0);
+          range.setEnd(spacer, 0);
+        }
+
+        selection.removeAllRanges();
+        selection.addRange(range);
+        container.focus();
+      }
+
+      // 同步内部状态和 onChange
+      setSelectedMentions(defaultMentions);
+      const serializedText = getSerializedEditorText(container);
+      setIsEditorEmpty(serializedText.trim().length === 0);
+      onChange?.(serializedText);
+    }, [createMentionChip, defaultMentions, enableMention, onChange]);
 
     // ==================== 核心事件处理 ====================
 

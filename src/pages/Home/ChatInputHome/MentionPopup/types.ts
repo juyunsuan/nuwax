@@ -132,6 +132,8 @@ export interface MentionEditorProps {
   className?: string;
   /** 是否启用 @ 提及功能，默认 true */
   enableMention?: boolean;
+  /** 用于回显的默认提及项列表（需同时传入 value 文本） */
+  defaultMentions?: MentionItem[];
   /** 选择提及项时的回调 */
   onMentionSelect?: (item: MentionItem) => void;
   /** 当前已选技能 ID 列表变化时的回调 */
