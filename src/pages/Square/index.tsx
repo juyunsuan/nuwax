@@ -8,7 +8,9 @@ import useSpaceSquare from '@/hooks/useSpaceSquare';
 import {
   apiPublishedAgentList,
   apiPublishedPluginList,
+  apiPublishedSkillCollect,
   apiPublishedSkillList,
+  apiPublishedSkillUnCollect,
   apiPublishedTemplateList,
   apiPublishedWorkflowList,
 } from '@/services/square';
@@ -449,6 +451,16 @@ const Square: React.FC = () => {
                         onToggleCollectSuccess={handleToggleCollectSuccess}
                         onClick={() =>
                           handleClick(item.targetId, item.targetType, item)
+                        }
+                        collectApi={
+                          categoryTypeRef.current === SquareAgentTypeEnum.Skill
+                            ? apiPublishedSkillCollect
+                            : undefined
+                        }
+                        unCollectApi={
+                          categoryTypeRef.current === SquareAgentTypeEnum.Skill
+                            ? apiPublishedSkillUnCollect
+                            : undefined
                         }
                       />
                     );
