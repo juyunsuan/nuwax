@@ -66,6 +66,8 @@ const getCaretPosition = (
 
   // 参考 MentionPopup 的最大高度（index.less 中为 280px 列表 + 头部区域）
   const POPUP_ESTIMATED_HEIGHT = 320;
+  // 预估弹窗高度
+  // 如果传入了弹窗高度，则使用传入的弹窗高度，否则使用预估的弹窗高度，避免在输入关键词导致内容高度变化时，弹窗整体纵向位置发生明显跳动。
   const estimatedHeight = popupHeight ?? POPUP_ESTIMATED_HEIGHT;
 
   let finalPlacement = placement;
@@ -80,15 +82,14 @@ const getCaretPosition = (
     top = rect.bottom + 4;
 
     // 如果弹窗高度过大，可能会超出视口底部，这里向上收缩避免撑出页面滚动条
-    const height = popupHeight ?? estimatedHeight;
-    const maxTop = viewportHeight - height - 4;
+    const maxTop = viewportHeight - estimatedHeight - 4;
     if (top > maxTop) {
       top = Math.max(4, maxTop);
     }
   } else {
     // 弹窗显示在光标上方，将底边尽量贴近光标上方 4px 位置
-    const height = popupHeight ?? estimatedHeight;
-    top = rect.top - 4 - height;
+    top = rect.top - 4 - estimatedHeight;
+
     // 防止超出可视区域顶部
     if (top < 4) {
       top = 4;
@@ -403,6 +404,7 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
      */
     const refreshMentionPosition = useCallback(() => {
       if (!enableMention || !showMentionPopup) return;
+
       const position = getCaretPosition(
         mentionPlacement,
         mentionPopupHeight ?? undefined,
@@ -415,9 +417,16 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
     /**
      * 处理弹窗高度变化
      * 使用 useCallback 保证传入 MentionPopup 的回调引用稳定，避免无限循环
+     *
+     * 修复点：
+     * - 当弹窗向上展开时（placement === 'up'），在输入搜索关键字导致列表高度变化时，
+     *   不再重新根据新高度完全重算 top，避免弹窗整体离编辑器越来越远。
+     * - 向下展开时仍使用最新高度重新计算，保持现有行为。
      */
     const handlePopupHeightChange = useCallback(
       (height: number) => {
+        // 记录最新的弹窗高度，并用该高度 + 当前光标位置重新计算位置，
+        // 确保无论向上还是向下展开，弹窗始终贴近当前光标
         setMentionPopupHeight(height);
         const position = getCaretPosition(mentionPlacement, height);
         if (position) {
@@ -824,7 +833,10 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
       // 是否存在有效的 @ 提及，如果有，则显示弹窗
       if (mentionInfo.hasMention) {
         // 检测到有效的 @ 提及
-        const position = getCaretPosition(mentionPlacement);
+        const position = getCaretPosition(
+          mentionPlacement,
+          mentionPopupHeight || undefined,
+        );
         if (position) {
           // 保存当前的 range 和 textNode，用于后续插入 mention
           const selection = window.getSelection();
@@ -849,6 +861,7 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
       getTextContent,
       onChange,
       closeMentionPopup,
+      mentionPopupHeight,
     ]);
 
     /**

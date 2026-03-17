@@ -631,13 +631,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
           ))}
         </div>
 
-        {/* 搜索提示（显示当前搜索关键词，来自 @ 后输入的文本） */}
-        {searchText && (
-          <div className={styles['mention-search-hint']}>
-            搜索: {searchText}
-          </div>
-        )}
-
         {/* 列表项 */}
         <div
           ref={listRef}
