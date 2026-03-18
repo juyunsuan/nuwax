@@ -1002,14 +1002,57 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
 
     /**
      * 处理粘贴事件
+     * - 如果剪贴板中包含图片：交给外部 onPaste（用于上传图片），不处理文本
+     * - 如果只有文本/DOM：阻止默认粘贴行为，只按纯文本插入，去掉所有原始 DOM 属性/样式
      */
     const handlePasteEvent = useCallback(
       (e: React.ClipboardEvent<HTMLDivElement>) => {
-        if (onPaste) {
-          onPaste(e);
+        const clipboardData = e.clipboardData;
+
+        // 1. 先检查是否包含图片，如果有图片则交给外部 onPaste 处理上传
+        if (clipboardData && clipboardData.items) {
+          let hasImage = false;
+          for (let i = 0; i < clipboardData.items.length; i += 1) {
+            const item = clipboardData.items[i];
+            if (item.type.indexOf('image') !== -1) {
+              hasImage = true;
+              break;
+            }
+          }
+
+          if (hasImage) {
+            onPaste(e);
+            // 不要在这里 preventDefault，让外层 onPaste 自行决定是否阻止默认行为
+            return;
+          }
         }
+
+        // 2. 没有图片时，按纯文本方式粘贴，去掉所有样式/属性
+        e.preventDefault();
+
+        const text = clipboardData?.getData('text/plain') ?? '';
+        if (!text) return;
+
+        if (!editorRef.current) return;
+
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+          // 如果没有选区，直接追加到末尾
+          editorRef.current.appendChild(document.createTextNode(text));
+        } else {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          range.insertNode(document.createTextNode(text));
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+
+        const serializedText = getSerializedEditorText(editorRef.current);
+        setIsEditorEmpty(serializedText.trim().length === 0);
+        onChange?.(serializedText);
       },
-      [onPaste],
+      [onChange, onPaste],
     );
 
     /**
@@ -1199,12 +1242,19 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
             [styles.disabled]: disabled,
           })}
           contentEditable={!disabled}
+          // 输入事件
           onInput={handleInput}
+          // 键盘事件
           onKeyDown={handleKeyDown}
+          // 粘贴事件
           onPaste={handlePasteEvent}
+          // 失焦事件
           onBlur={handleBlur}
+          // 点击事件
           onClick={handleClick}
+          // 输入法组合开始事件
           onCompositionStart={handleCompositionStart}
+          /** 输入法组合结束事件 */
           onCompositionEnd={handleCompositionEnd}
           style={{
             minHeight: `${minHeight}px`,

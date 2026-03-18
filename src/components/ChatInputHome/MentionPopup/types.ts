@@ -183,7 +183,7 @@ export interface MentionEditorProps {
   /** 按下回车键时的回调（用于发送消息） */
   onPressEnter?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   /** 粘贴时的回调（用于处理图片粘贴） */
-  onPaste?: (e: React.ClipboardEvent<HTMLDivElement>) => void;
+  onPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
   /** 占位符文本 */
   placeholder?: string;
   /** 是否在渲染后自动获取焦点，默认 true */
