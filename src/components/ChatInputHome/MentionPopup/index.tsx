@@ -142,6 +142,10 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     /** 列表容器引用，用于滚动加载下一页 */
     const listRef = useRef<HTMLDivElement>(null);
+    /** 是否已经在本轮弹窗生命周期内完成过首轮 Tab 初始化 */
+    const hasInitTabsRef = useRef<boolean>(false);
+    /** 上一次已用于请求的搜索关键字，用于避免与首轮 init 重复请求，并在关键字变化时仅刷新当前 Tab */
+    const lastSearchTextRef = useRef<string>('');
 
     // ==================== 事件处理 ====================
 
@@ -366,6 +370,11 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         setActiveTab('recent');
         setSelectedIndex(0);
         setTabDataMap(createTabDataState());
+        /**
+         * 弹窗完全关闭时重置首轮 Tab 初始化标记与搜索关键字标记
+         */
+        hasInitTabsRef.current = false;
+        lastSearchTextRef.current = '';
       };
     }, [visible]);
 
@@ -374,12 +383,22 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
      * 1. 先加载「最近使用」，如果有数据则停在该 Tab
      * 2. 若无数据，再加载「我的收藏」，有数据则停在该 Tab
      * 3. 若仍无数据，最后加载「全部」
+     *
+     * 仅在本轮弹窗生命周期内执行一次：
+     * - 首次 visible === true 时运行
+     * - 之后搜索关键字变化时，只在当前 Tab 内搜索，不再轮询其他 Tab
+     * - 弹窗关闭后（visible === false）重置标记，下次重新打开时再执行一次
      */
     useEffect(() => {
-      if (!visible) {
+      if (!visible || hasInitTabsRef.current) {
         return;
       }
 
+      hasInitTabsRef.current = true;
+
+      // 这一行所在的 effect 不要把 searchText 加进依赖数组。
+      // 目前的拆分（一个 effect 管首轮 init，另一个 effect 管搜索变化）是刻意设计的，加入 searchText 反而会破坏「只在首次打开时轮询 Tab」的语义。
+      lastSearchTextRef.current = searchText ?? '';
       let cancelled = false;
 
       const initTabs = async () => {
@@ -399,6 +418,17 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         cancelled = true;
       };
     }, [loadTabData, visible]);
+
+    /**
+     * 弹窗已打开且首轮 init 完成后：搜索关键字变化时仅刷新当前 Tab 第一页
+     */
+    useEffect(() => {
+      if (!visible || !hasInitTabsRef.current) return;
+      const currentSearch = searchText ?? '';
+      if (currentSearch === lastSearchTextRef.current) return;
+      lastSearchTextRef.current = currentSearch;
+      loadTabData(activeTab, 1);
+    }, [visible, searchText, activeTab, loadTabData]);
 
     /**
      * 使用 ResizeObserver 在弹窗实际尺寸变化时上报高度，确保父组件用真实渲染高度重算位置，

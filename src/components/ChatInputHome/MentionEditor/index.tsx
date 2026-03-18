@@ -1076,7 +1076,10 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
               savedTextNodeRef.current = textNode;
 
               // 光标在 @ 后面，没有空格间隔，显示弹窗
-              const position = getCaretPosition(mentionPlacement);
+              const position = getCaretPosition(
+                mentionPlacement,
+                mentionPopupHeight ?? undefined,
+              );
               if (position) {
                 setMentionPosition(position);
                 setMentionSearchText(textAfterAt);
@@ -1111,7 +1114,13 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
           }
         }
       }, 0);
-    }, [disabled, enableMention, mentionPlacement, closeMentionPopup]);
+    }, [
+      disabled,
+      enableMention,
+      mentionPlacement,
+      closeMentionPopup,
+      mentionPopupHeight,
+    ]);
 
     // ==================== Effects ====================
 
