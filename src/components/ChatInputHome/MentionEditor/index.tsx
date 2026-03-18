@@ -49,18 +49,23 @@ const cx = classNames.bind(styles);
  *
  * @param placement - 弹窗期望方向：'auto' | 'up' | 'down'
  * @param popupHeight - 弹窗实际高度（用于向上展开时将底边贴近光标）
+ * @param fallbackRange - 可选，切换 Tab 等场景下选区可能不在编辑器时，用此 Range 计算位置（如打开弹窗时保存的 @ 位置）
  * @returns 弹窗位置对象 { top, left }，如果无法获取则返回 null
  */
 const getCaretPosition = (
   placement: 'auto' | 'up' | 'down' = 'auto',
   popupHeight?: number,
+  fallbackRange?: Range | null,
 ): { top: number; left: number } | null => {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
-    return null;
-  }
+  const range =
+    fallbackRange ??
+    (() => {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return null;
+      return selection.getRangeAt(0);
+    })();
+  if (!range) return null;
 
-  const range = selection.getRangeAt(0);
   const rect = range.getBoundingClientRect();
   const viewportHeight =
     window.innerHeight || document.documentElement.clientHeight || 0;
@@ -411,6 +416,17 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
     }, [enableMention, defaultPlaceholder]);
 
     /**
+     * 弹窗最大高度：不超过视口内从弹窗 top 到底部的空间，避免弹窗撑出页面滚动条导致左右闪动
+     */
+    const mentionPopupMaxHeight = useMemo(() => {
+      if (!showMentionPopup || !mentionPosition) return undefined;
+      const vh =
+        window.innerHeight || document.documentElement.clientHeight || 0;
+      const spaceBelow = vh - mentionPosition.top - 24;
+      return Math.min(400, Math.max(120, spaceBelow));
+    }, [showMentionPopup, mentionPosition]);
+
+    /**
      * 刷新 MentionPopup 的位置，使其尽量跟随当前光标
      * 在键盘导航、页面滚动或窗口变化时调用
      */
@@ -420,6 +436,7 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
       const position = getCaretPosition(
         mentionPlacement,
         mentionPopupHeight ?? undefined,
+        savedRangeRef.current ?? undefined,
       );
       if (position) {
         setMentionPosition(position);
@@ -437,10 +454,13 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
      */
     const handlePopupHeightChange = useCallback(
       (height: number) => {
-        // 记录最新的弹窗高度，并用该高度 + 当前光标位置重新计算位置，
-        // 确保无论向上还是向下展开，弹窗始终贴近当前光标
         setMentionPopupHeight(height);
-        const position = getCaretPosition(mentionPlacement, height);
+        // 使用打开弹窗时保存的 Range 计算位置，避免切换 Tab 后焦点在弹窗内导致 getSelection() 不在编辑器而定位错
+        const position = getCaretPosition(
+          mentionPlacement,
+          height,
+          savedRangeRef.current ?? undefined,
+        );
         if (position) {
           setMentionPosition(position);
         }
@@ -1194,6 +1214,7 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
             onSelect={handleMentionSelect}
             onClose={closeMentionPopup}
             searchText={mentionSearchText}
+            maxHeight={mentionPopupMaxHeight}
             onHeightChange={handlePopupHeightChange}
           />
         </div>

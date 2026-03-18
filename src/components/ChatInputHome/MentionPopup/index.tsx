@@ -121,8 +121,8 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
       position,
       onSelect,
       onClose,
-      // 搜索文本（由外部通过 @ 后输入的内容控制）
       searchText,
+      maxHeight,
       onHeightChange,
     },
     ref,
@@ -401,14 +401,23 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     }, [loadTabData, visible]);
 
     /**
-     * 当弹窗可见且 Tab 或列表内容发生变化时，通知外部“高度可能改变”
-     * 由外部统一重新计算弹窗与光标之间的位置关系
+     * 使用 ResizeObserver 在弹窗实际尺寸变化时上报高度，确保父组件用真实渲染高度重算位置，
+     * 避免切换 Tab 后弹窗变高但位置未更新导致弹窗底边超出光标
      */
     useEffect(() => {
-      if (!visible || !containerRef.current) return;
-      const height = containerRef.current.offsetHeight ?? 0;
-      onHeightChange?.(height);
-    }, [visible, currentItems.length]);
+      if (!visible || !onHeightChange || !containerRef.current) return;
+      const el = containerRef.current;
+
+      const reportHeight = () => {
+        const height = el.offsetHeight ?? 0;
+        if (height > 0) onHeightChange(height);
+      };
+
+      reportHeight();
+      const observer = new ResizeObserver(() => reportHeight());
+      observer.observe(el);
+      return () => observer.disconnect();
+    }, [visible, onHeightChange]);
 
     /**
      * 切换 Tab 或搜索词后，将列表滚动条重置到顶部
@@ -612,6 +621,7 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
           position: 'fixed',
           top: position.top,
           left: position.left,
+          ...(!!maxHeight && { maxHeight }),
         }}
         onMouseDown={(e) => {
           // 阻止点击弹窗内容时让编辑器失焦，否则会触发外层 blur 关闭弹窗
