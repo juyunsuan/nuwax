@@ -59,9 +59,9 @@ const cx = classNames.bind(styles);
  * 默认优先展示「最近使用」，将「全部」放在最后
  */
 const TABS: TabConfig[] = [
+  { key: 'all', label: '全部' },
   { key: 'recent', label: '最近使用' },
   { key: 'favorite', label: '我的收藏' },
-  { key: 'all', label: '全部' },
 ];
 
 /** 单个 Tab 每次请求或分页追加的数量 */
@@ -129,7 +129,7 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
   ) => {
     // ==================== State ====================
     /** 当前激活的 Tab */
-    const [activeTab, setActiveTab] = useState<TabType>('recent');
+    const [activeTab, setActiveTab] = useState<TabType>('all');
     /** 当前选中项索引（仅内部状态） */
     const [selectedIndex, setSelectedIndex] = useState<number>(0);
     /** 各 Tab 对应的分页数据 */
@@ -142,9 +142,9 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     /** 列表容器引用，用于滚动加载下一页 */
     const listRef = useRef<HTMLDivElement>(null);
-    /** 是否已经在本轮弹窗生命周期内完成过首轮 Tab 初始化 */
+    /** 是否已在本次弹窗打开时执行过首次加载（只加载当前 Tab 第一页） */
     const hasInitTabsRef = useRef<boolean>(false);
-    /** 上一次已用于请求的搜索关键字，用于避免与首轮 init 重复请求，并在关键字变化时仅刷新当前 Tab */
+    /** 上一次已用于请求的搜索关键字，关键字变化时仅刷新当前 Tab */
     const lastSearchTextRef = useRef<string>('');
     /** 在最后一项按向下键触发加载更多后，待加载完成时要选中的索引（新一页的第一项） */
     const pendingSelectIndexAfterLoadRef = useRef<number | null>(null);
@@ -241,7 +241,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         const records = (response?.data || []) as SkillInfoForAt[];
 
         handleTabDataResponse('recent', page, records);
-        return records.length > 0;
       },
       [searchText, handleTabDataResponse],
     );
@@ -259,7 +258,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         const records = (response?.data || []) as SkillInfoForAt[];
 
         handleTabDataResponse('favorite', page, records);
-        return records.length > 0;
       },
       [searchText, handleTabDataResponse],
     );
@@ -292,7 +290,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
           hasMore:
             total > 0 ? page * PAGE_SIZE < total : records.length >= PAGE_SIZE,
         }));
-        return records.length > 0 || total > 0;
       },
       [searchText, updateTabDataState],
     );
@@ -303,26 +300,21 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
      */
     const loadTabData = useCallback(
       async (tab: TabType, page: number = 1) => {
-        if (!visible) {
-          return false;
-        }
+        if (!visible) return;
 
-        // 这里不再依赖外部的 tabDataMap，避免因 loading 状态变更导致的死循环请求
         updateTabDataState(tab, (prev) => ({
           ...prev,
           loading: true,
         }));
 
         try {
-          let hasData = false;
           if (tab === 'recent') {
-            hasData = await loadRecentTabData(page);
+            await loadRecentTabData(page);
           } else if (tab === 'favorite') {
-            hasData = await loadFavoriteTabData(page);
+            await loadFavoriteTabData(page);
           } else {
-            hasData = await loadAllTabData(page);
+            await loadAllTabData(page);
           }
-          return hasData;
         } catch (error) {
           console.error(`加载 MentionPopup ${tab} 数据失败:`, error);
           updateTabDataState(tab, (prev) => ({
@@ -333,7 +325,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
             items: page === 1 ? [] : prev.items,
             total: page === 1 ? 0 : prev.total,
           }));
-          return false;
         }
       },
       [
@@ -369,11 +360,11 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
      */
     useEffect(() => {
       return () => {
-        setActiveTab('recent');
+        setActiveTab('all');
         setSelectedIndex(0);
         setTabDataMap(createTabDataState());
         /**
-         * 弹窗完全关闭时重置首轮 Tab 初始化标记与搜索关键字标记
+         * 弹窗关闭时重置首次加载标记与搜索关键字标记
          */
         hasInitTabsRef.current = false;
         lastSearchTextRef.current = '';
@@ -381,48 +372,18 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     }, [visible]);
 
     /**
-     * 弹窗首次打开时，按 Tab 顺序尝试加载数据
-     * 1. 先加载「最近使用」，如果有数据则停在该 Tab
-     * 2. 若无数据，再加载「我的收藏」，有数据则停在该 Tab
-     * 3. 若仍无数据，最后加载「全部」
-     *
-     * 仅在本轮弹窗生命周期内执行一次：
-     * - 首次 visible === true 时运行
-     * - 之后搜索关键字变化时，只在当前 Tab 内搜索，不再轮询其他 Tab
-     * - 弹窗关闭后（visible === false）重置标记，下次重新打开时再执行一次
+     * 弹窗首次打开时，只加载当前 Tab 的第一页数据（仅执行一次，不轮询其他 Tab）
      */
     useEffect(() => {
-      if (!visible || hasInitTabsRef.current) {
-        return;
-      }
+      if (!visible || hasInitTabsRef.current) return;
 
       hasInitTabsRef.current = true;
-
-      // 这一行所在的 effect 不要把 searchText 加进依赖数组。
-      // 目前的拆分（一个 effect 管首轮 init，另一个 effect 管搜索变化）是刻意设计的，加入 searchText 反而会破坏「只在首次打开时轮询 Tab」的语义。
       lastSearchTextRef.current = searchText ?? '';
-      let cancelled = false;
-
-      const initTabs = async () => {
-        for (const tab of TABS) {
-          const hasData = await loadTabData(tab.key, 1);
-          if (cancelled) return;
-          if (hasData) {
-            setActiveTab(tab.key);
-            break;
-          }
-        }
-      };
-
-      initTabs();
-
-      return () => {
-        cancelled = true;
-      };
-    }, [loadTabData, visible]);
+      loadTabData(activeTab, 1);
+    }, [activeTab, loadTabData, visible]);
 
     /**
-     * 弹窗已打开且首轮 init 完成后：搜索关键字变化时仅刷新当前 Tab 第一页
+     * 弹窗已打开后：搜索关键字变化时仅刷新当前 Tab 第一页
      */
     useEffect(() => {
       if (!visible || !hasInitTabsRef.current) return;
