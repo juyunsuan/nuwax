@@ -688,8 +688,10 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         className={styles['mention-popup']}
         style={{
           position: 'fixed',
-          top: position.top,
           left: position.left,
+          ...(position.bottom
+            ? { bottom: position.bottom }
+            : { top: position.top }),
           ...(!!maxHeight && { maxHeight }),
         }}
         onMouseDown={(e) => {
