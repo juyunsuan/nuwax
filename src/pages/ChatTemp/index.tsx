@@ -471,33 +471,6 @@ const ChatTemp: React.FC = () => {
     params: TempConversationChatParams,
     currentMessageId: string,
   ) => {
-    // //模拟数据 一定删除 ====
-    // let index = 0;
-    // import('@/mock/create_talent2.js').then((res) => {
-    //   console.log('res', res);
-    //   const mockData = res.default;
-    //   const len = mockData.length;
-    //   console.log('mockChatData', mockData);
-
-    //   console.time('mockData');
-
-    //   const interval = setInterval(() => {
-    //     if (index < len) {
-    //       console.timeLog('mockData', index);
-
-    //       handleChangeMessageList(mockData[index], currentMessageId);
-    //       // 滚动到底部
-    //       handleScrollBottom();
-    //     } else {
-    //       clearInterval(interval);
-    //       console.timeEnd('mockData');
-    //     }
-    //     index++;
-    //   }, 500);
-    // });
-
-    // return;
-    // //===== 模拟数据 一定删除 ====
     // 启动连接
     abortConnectionRef.current = await createSSEConnection({
       url: TEMP_CONVERSATION_CONNECTION_URL,
@@ -512,7 +485,7 @@ const ChatTemp: React.FC = () => {
       onMessage: (res: ConversationChatResponse) => {
         handleChangeMessageList(res, currentMessageId);
         // 滚动到底部
-        messageViewScrollToBottom();
+        handleScrollBottom();
       },
       onError: () => {
         message.error('网络超时或服务不可用，请稍后再试');
@@ -645,7 +618,7 @@ const ChatTemp: React.FC = () => {
     // 隐藏点击下滚按钮
     setShowScrollBtn(false);
     // 滚动
-    messageViewScrollToBottom();
+    handleScrollBottom();
     // 会话请求参数
     const params: TempConversationChatParams = {
       chatKey,
